@@ -408,9 +408,6 @@ canny(δ) = Canny(spatial_scale=δ, low=Percentile(CannyMinThreshold), high=Perc
 # ╔═╡ ebe4d314-13b0-4c9e-a760-9fc15e757b41
 contours = find_contours(irisOutline)
 
-# ╔═╡ 05748b0a-3fa4-4e1e-8344-26fc09d15618
-points =collect.(Tuple.(vcat(contours...)))
-
 # ╔═╡ 42358388-f973-4f90-b601-e547ade6afd2
 function fitEclipse(points)
 	#initial Value
@@ -432,6 +429,9 @@ function cononical_form(p)
 	D = (A-C)^2+B^2
 	a,b = -(2*(A*E^2+C*D^2-B*D*E+(B^2-4*A*C)*F)*((A+C)))^0.5/(B^2-4*A*C)
 end
+
+# ╔═╡ 05748b0a-3fa4-4e1e-8344-26fc09d15618
+points =collect.(Tuple.(vcat(contours...)))
 
 # ╔═╡ 25f01b2a-4fb8-4f0a-aefd-d7a501ba514c
 begin
@@ -494,8 +494,8 @@ eigen(A'*A)
 # ╠═a3fda49b-1b62-4e10-b0e9-3cabdd744aab
 # ╠═999dd8e7-d4b8-4dcd-93e6-46984d3b54d9
 # ╠═ebe4d314-13b0-4c9e-a760-9fc15e757b41
-# ╠═05748b0a-3fa4-4e1e-8344-26fc09d15618
 # ╠═42358388-f973-4f90-b601-e547ade6afd2
-# ╠═582ecf2a-a877-48b7-9224-28f42bdd6f38
 # ╠═25f01b2a-4fb8-4f0a-aefd-d7a501ba514c
+# ╠═582ecf2a-a877-48b7-9224-28f42bdd6f38
 # ╠═18a3dd52-18d5-4ae0-aaf5-7541a687d152
+# ╠═05748b0a-3fa4-4e1e-8344-26fc09d15618
