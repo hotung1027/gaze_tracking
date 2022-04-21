@@ -22,7 +22,7 @@ begin
 	,"ImageShow"
 	,"ImageIO", "VideoIO","ImageCore"
 	,"ImageFeatures", "ImageDraw", "CoordinateTransformations", "Statistics"
-	,"Rotations","ProgressMeter","PlutoUI","Plots","PlotlyJS","DataFrames","ImageSegmentation","ImageEdgeDetection","LsqFit","JuMP"])
+	,"Rotations","ProgressMeter","PlutoUI","LaTeXStrings","HypertextLiteral","Plots","PlotlyJS","DataFrames","ImageSegmentation","ImageEdgeDetection","LsqFit","JuMP","Markdown", "InteractiveUtils"])
 	using Images, ImageCore
 	using Plots, DataFrames
 	using ImageSegmentation, ImageEdgeDetection
@@ -31,8 +31,10 @@ begin
 	using Statistics
 	using LsqFit
 	using ImageIO, VideoIO
-	using ProgressMeter,PlutoUI
+	using ProgressMeter,PlutoUI,LaTeXStrings
 	using ImageFeatures, ImageDraw, CoordinateTransformations, Rotations
+	using Markdown, InteractiveUtils,HypertextLiteral
+
 	plotlyjs()
 end
 
@@ -287,7 +289,7 @@ Gray.(Gray.(HaarKernel(HaarSurroundFeature(2,4))) .>0)
 begin
 	rstep = 2
 	minRadius,maxRadius = (30,120)
-	PercentageInliers = .3
+	PercentageInliers = .4
 	CannyMinThreshold = 95
     CannyMaxThreshold = 100
 end
@@ -347,11 +349,32 @@ end
 # ╔═╡ 56862b73-4a41-4b1d-9370-1aca95380f35
 irisROI = ROI(sample,center,haarRadius)
 
+# ╔═╡ fcc9384f-3ce3-421a-94c6-c1cbd4af7f91
+hsv_irisROI = HSV.(irisROI)
+
 # ╔═╡ 856b8c4f-88e0-4f23-b015-997ed6c8c6c6
 begin
 	plot([histogram(vec(channelview(irisROI)[i,:,:])) for i in 1:3]...
 	,layout=(3,1),legend=false)
 end
+
+# ╔═╡ b9e3c0c0-afe8-4870-9cc5-7098a03e93f0
+begin
+	plot([histogram(vec(channelview(hsv_irisROI)[i,:,:])) for i in 1:3]...
+	,layout=(3,1),legend=false)
+end
+
+# ╔═╡ c907ebe9-d0d5-4fd6-aefa-e0e6a4002034
+H,S,V = [channelview(hsv_irisROI)[i,:,:] for i in 1:3]
+
+# ╔═╡ 801ddea6-8b89-47f0-8a7c-a8f00a03fbcb
+mH,mS,mV = [channelview(sample)[i,:,:] for i in 1:3]
+
+# ╔═╡ 1e05e95c-ea34-4327-9698-37195db35824
+irisROI .* (H .<= quantile(vec(H), .7) .&& H .>= quantile(vec(H), .3))
+
+# ╔═╡ e29d9583-37c8-4088-874f-ca12fba2ff26
+sample .* (mV .<= quantile(vec(V), .3))
 
 # ╔═╡ c3981677-bf5a-45d1-8680-e023ba1a9093
 histogram(vec(channelview(irisROI)[1,:,:]))
@@ -367,9 +390,6 @@ argmin(response)
 
 # ╔═╡ 24419aba-ad2a-4681-b3c5-3fa5fe1c35e4
 response[argmax(response)]
-
-# ╔═╡ 141688e5-dc5e-4b65-a97a-e2752eedcf5b
-seeds = [(center,1),(argmin(response),2)]
 
 # ╔═╡ ee695bfd-38af-44c9-80e3-84d13a7e8b9f
 begin
@@ -408,6 +428,80 @@ canny(δ) = Canny(spatial_scale=δ, low=Percentile(CannyMinThreshold), high=Perc
 # ╔═╡ ebe4d314-13b0-4c9e-a760-9fc15e757b41
 contours = find_contours(irisOutline)
 
+# ╔═╡ bf2603a3-fdf1-4a75-8d4c-fc926e3623db
+points =collect.(Tuple.(vcat(contours...)))
+
+# ╔═╡ 58271ca0-4731-46aa-b848-6d365f0a1e48
+md"""
+# Ellipse Fitting 
+"""
+
+# ╔═╡ a3650f78-d7fe-4da9-bbaa-7d411c7672f0
+md"""
+## Problem Statement
+```math
+F(A,X) = A \cdot X = ax^2 + bxy + cy^2 + dx + ey + f = 0 
+```
+$F(A,X) \ \text{is the distance function for the Ellipse to data points}$ 
+"""
+
+# ╔═╡ 74dd4f1c-e285-440c-95eb-831591a9b5ea
+L"A = [a\  b\  c\ d\ e\ f]^T"
+
+# ╔═╡ 6b052ca4-8296-4d52-86d3-0026b97468ce
+L"X = [x^2\ xy\ y^2 x\ y\ ]^T"
+
+# ╔═╡ 63cd2bea-97dc-4c79-996a-294afe9f58e5
+md"""
+## Contstrain 
+
+By forcing the discriminant $b^2 - 4ac \leq 0$,
+
+"""
+
+# ╔═╡ 53667ef2-2b4f-4981-96f2-902dddef55fd
+L"A^T\begin{bmatrix}
+0 & 0 & 2 & 0 & 0 & 0\\
+0 & -1 & 0 & 0 & 0 & 0\\
+2 & 0 & 0 & 0 & 0 & 0\\
+0 & 0 & 0 & 0 & 0 & 0\\
+0 & 0 & 0 & 0 & 0 & 0\\
+0 & 0 & 0 & 0 & 0 & 0\\
+\end{bmatrix}A=1"
+
+# ╔═╡ 482649ae-6747-4f29-852d-bb32debb9f3c
+C = [ 	0 0 2 0 0 0
+		0 -1 0 0 0 0 
+		2 0 0 0 0 0 
+		0 0 0 0 0 0 
+		0 0 0 0 0 0 
+		0 0 0 0 0 0 ]
+
+# ╔═╡ 3ec810d2-ba8e-4ac0-81e7-a10ddbcd74a5
+md"""
+then  the contstrain fitting problem
+
+$\text{minimize }  J = \begin{Vmatrix}XA\end{Vmatrix}^2$
+"""
+
+# ╔═╡ f197e74c-6de9-4301-b0e8-f1357d5ea2cc
+# The Cost Function
+J(X,A) = norm(X*A,2)
+
+# ╔═╡ 3c67f7fe-0c09-48ef-a268-c80f0d2629bd
+md"""
+we obtained the system of equations
+```math
+\begin{align}
+            X^TXA &= \lambda CA\\ 
+            A^TCA &= 1\\
+\end{align}
+
+```
+
+
+"""
+
 # ╔═╡ 42358388-f973-4f90-b601-e547ade6afd2
 function fitEclipse(points)
 	#initial Value
@@ -423,26 +517,117 @@ function fitEclipse(points)
 	
 end
 
-# ╔═╡ 582ecf2a-a877-48b7-9224-28f42bdd6f38
-function cononical_form(p)
-	A,B,C,D,E,F = p
-	D = (A-C)^2+B^2
-	a,b = -(2*(A*E^2+C*D^2-B*D*E+(B^2-4*A*C)*F)*((A+C)))^0.5/(B^2-4*A*C)
-end
-
-# ╔═╡ 05748b0a-3fa4-4e1e-8344-26fc09d15618
-points =collect.(Tuple.(vcat(contours...)))
-
 # ╔═╡ 25f01b2a-4fb8-4f0a-aefd-d7a501ba514c
 begin
-	X = map(x->x[1],points)
-	Y = map(x->x[2],points)
-	A = [X.^2 Y.^2 X.*Y X Y ones(size(points))]
-	A\ones(size(points))
+	x = map(x->x[1],points)
+	y = map(x->x[2],points)
+	X = [x.^2 y.^2 x.*y x y ones(size(points))]
+	X\ones(size(points))
 end
 
+# ╔═╡ 9e39afa9-efff-4d6b-9917-e005ce12e393
+D = reduce(hcat,points)
+
+# ╔═╡ 51311909-9f3c-44e0-a6ca-b92534ec18a9
+D'D
+
+# ╔═╡ d1ce0371-98c5-41a1-8e9c-630fd0075a27
+md"""
+```math
+\mu_i = \sqrt{\frac{1}{u_i^TCu_i}} = \sqrt{\frac{\lambda_i}{u_i^TSu_i}}
+```
+##### There should be a minimum positive defined eigenvalue
+"""
+
 # ╔═╡ 18a3dd52-18d5-4ae0-aaf5-7541a687d152
-eigen(A'*A)
+genval , genvec = eigen(X'*X,C)
+
+# ╔═╡ 80de1f18-7494-4296-af0c-3b2c24bbc45d
+md"""
+###### TODO:
+Final Eigen Value and Eigne Vector, Foreach Eigen Value and Vector obtain the scaling factor
+Then find the minimum noise (eigenval,eigenvector) pair
+"""
+
+# ╔═╡ 44ed9c0c-1000-48db-b70f-2983ccf080a9
+function minimizePair(X,λ,v;C=C) # -> minimum noise pair of (λ,v) with sacling factor μ
+	S = X'X
+	c1(S,λ,v) =  S*v - λ.*C*v
+	c2(v,C) = v'*C*v - 1
+	μ(S,λ,v) = sqrt(λ/(v'*S*v))
+	posIdx = (λ .!= Inf .&& λ .> 0)
+	λ,v = λ[posIdx],v[:,posIdx]
+	if(length(λ) == 1)
+		return (λ,μ(S,λ,v).*v)
+	else
+		idx = argmin([ norm((μ(S,λ[i],v[:,i]) .* v[:,i])' * S * (μ(S,λ[i],v[:,i]) .* v[:,i]) - λ[i]) for i in 1:length(λ)])
+		return (λ(idx),v[:,idx])
+	end
+	
+end
+
+# ╔═╡ f72e821a-08ff-4b7b-950d-68f914fa193b
+function directLsqSolve(X;C=C)
+	genval , genvec = eigen(X'*X\C)
+	(λ,v)=minimizePair(X,genval,genvec)
+	a = λ.*v
+	return (λ,v)
+end
+
+# ╔═╡ 8168834e-072b-4d23-b0f5-540e34c2fe6c
+function fitEllipse(points)
+	x = map(x->x[1],points)
+	y = map(x->x[2],points)
+	X = [x.^2 y.^2 x.*y x y ones(size(points))]
+	a = directLsqSolve(X)
+	
+	
+end
+
+# ╔═╡ 755442fe-22c3-41c2-a5d5-238fdee7a21d
+λ,v = fitEllipse(points)
+
+# ╔═╡ 92f3be15-484e-4fcc-828b-4b9a15042f2b
+â = λ .* v
+
+# ╔═╡ 89170295-4ff9-4de3-b96c-f70622e11e69
+norm(X*â)
+
+# ╔═╡ 8db21d64-643b-44aa-a042-f9af71677cdf
+±(x, y) = [x+y, x-y]
+
+# ╔═╡ f03d0e7c-71d6-45ff-a387-aac0c66d507b
+function cononical_form(p)
+	A,B,C,D,E,F = p
+	Δ = B^2 - 4*A*C
+	δ = (A-C)^2+B^2
+	a,b = -(2*(A*E^2+C*D^2-B*D*E+(B^2-4*A*C)*F)*((A+C)±δ)).^0.5./(B^2-4*A*C)
+	xₒ = (2*C*D-B*E)/(Δ)
+	yₒ = (2*A*E - B*D)/(Δ)
+	θ = if(B==0 && A<C)
+		0
+	elseif(B==0 && A>C)
+		π/2
+	else
+		atan((1/B)*(C-A-sqrt((A-C)^2+B^2)))
+	end
+	return (a,b,xₒ,yₒ,θ)
+end
+
+# ╔═╡ 752d47d9-f3f5-4620-a1f2-b95d030decda
+#p,q,xₒ,yₒ,θ = cononical_form(â)
+
+# ╔═╡ 3913502b-1f49-4033-85da-9575735fc5bb
+p,q,xₒ,yₒ,θ = cononical_form(v)
+
+# ╔═╡ b707cdf0-c7db-4448-8088-d68b6335b17d
+sample_copy = copy(sample)
+
+# ╔═╡ cf516d74-644f-44d7-9725-5662b7ef6fdb
+draw(sample_copy,Cross(Point(round(xₒ),round(yₒ)), 50), RGB{N0f8}(0,1,0))
+
+# ╔═╡ 17c3396c-e74d-4472-841b-e935f021e009
+draw(sample_copy,Ellipse(Point(round(xₒ),round(yₒ)),q,p; thickness=75,fill = false), RGB{N0f8}(1,0,0))
 
 # ╔═╡ Cell order:
 # ╠═cd9800b0-bb3a-11ec-1091-7985413e1e8e
@@ -477,13 +662,18 @@ eigen(A'*A)
 # ╠═17837126-5c77-445b-a303-6adcff5df88c
 # ╠═967046cf-90ce-4a5f-86f5-9fcc7af4b86b
 # ╠═56862b73-4a41-4b1d-9370-1aca95380f35
+# ╠═fcc9384f-3ce3-421a-94c6-c1cbd4af7f91
 # ╠═856b8c4f-88e0-4f23-b015-997ed6c8c6c6
+# ╠═b9e3c0c0-afe8-4870-9cc5-7098a03e93f0
+# ╠═c907ebe9-d0d5-4fd6-aefa-e0e6a4002034
+# ╠═801ddea6-8b89-47f0-8a7c-a8f00a03fbcb
+# ╠═1e05e95c-ea34-4327-9698-37195db35824
+# ╠═e29d9583-37c8-4088-874f-ca12fba2ff26
 # ╠═c3981677-bf5a-45d1-8680-e023ba1a9093
 # ╠═5b98504c-5f98-499d-ac2b-f165eacedb7e
 # ╠═f8fa6ecc-26fb-4188-a212-859903c76361
 # ╠═b481e342-0651-4dcf-8a9d-41a4ed3ca9dd
 # ╠═24419aba-ad2a-4681-b3c5-3fa5fe1c35e4
-# ╠═141688e5-dc5e-4b65-a97a-e2752eedcf5b
 # ╠═ee695bfd-38af-44c9-80e3-84d13a7e8b9f
 # ╠═cf512220-3d3d-40d0-af17-824f310e93b4
 # ╠═179f5e20-f4eb-4f05-af43-c56cbef25060
@@ -494,8 +684,34 @@ eigen(A'*A)
 # ╠═a3fda49b-1b62-4e10-b0e9-3cabdd744aab
 # ╠═999dd8e7-d4b8-4dcd-93e6-46984d3b54d9
 # ╠═ebe4d314-13b0-4c9e-a760-9fc15e757b41
+# ╠═bf2603a3-fdf1-4a75-8d4c-fc926e3623db
+# ╠═58271ca0-4731-46aa-b848-6d365f0a1e48
+# ╠═a3650f78-d7fe-4da9-bbaa-7d411c7672f0
+# ╠═74dd4f1c-e285-440c-95eb-831591a9b5ea
+# ╠═6b052ca4-8296-4d52-86d3-0026b97468ce
+# ╠═63cd2bea-97dc-4c79-996a-294afe9f58e5
+# ╠═53667ef2-2b4f-4981-96f2-902dddef55fd
+# ╠═482649ae-6747-4f29-852d-bb32debb9f3c
+# ╠═3ec810d2-ba8e-4ac0-81e7-a10ddbcd74a5
+# ╠═f197e74c-6de9-4301-b0e8-f1357d5ea2cc
+# ╠═3c67f7fe-0c09-48ef-a268-c80f0d2629bd
 # ╠═42358388-f973-4f90-b601-e547ade6afd2
 # ╠═25f01b2a-4fb8-4f0a-aefd-d7a501ba514c
-# ╠═582ecf2a-a877-48b7-9224-28f42bdd6f38
+# ╠═89170295-4ff9-4de3-b96c-f70622e11e69
+# ╠═9e39afa9-efff-4d6b-9917-e005ce12e393
+# ╠═51311909-9f3c-44e0-a6ca-b92534ec18a9
+# ╠═d1ce0371-98c5-41a1-8e9c-630fd0075a27
 # ╠═18a3dd52-18d5-4ae0-aaf5-7541a687d152
-# ╠═05748b0a-3fa4-4e1e-8344-26fc09d15618
+# ╠═80de1f18-7494-4296-af0c-3b2c24bbc45d
+# ╠═44ed9c0c-1000-48db-b70f-2983ccf080a9
+# ╠═f72e821a-08ff-4b7b-950d-68f914fa193b
+# ╠═8168834e-072b-4d23-b0f5-540e34c2fe6c
+# ╠═755442fe-22c3-41c2-a5d5-238fdee7a21d
+# ╠═92f3be15-484e-4fcc-828b-4b9a15042f2b
+# ╠═8db21d64-643b-44aa-a042-f9af71677cdf
+# ╠═f03d0e7c-71d6-45ff-a387-aac0c66d507b
+# ╠═752d47d9-f3f5-4620-a1f2-b95d030decda
+# ╠═3913502b-1f49-4033-85da-9575735fc5bb
+# ╠═b707cdf0-c7db-4448-8088-d68b6335b17d
+# ╠═cf516d74-644f-44d7-9725-5662b7ef6fdb
+# ╠═17c3396c-e74d-4472-841b-e935f021e009
